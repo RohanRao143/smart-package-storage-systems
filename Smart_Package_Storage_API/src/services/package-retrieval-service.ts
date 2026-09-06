@@ -1,5 +1,5 @@
 import type { Cents } from '../contracts/domain.js';
-import type { RetrievePackageRequest, RetrievePackageResponse } from '../contracts/api.js';
+import type { PickupQuoteResponse, RetrievePackageRequest, RetrievePackageResponse } from '../contracts/api.js';
 import type { CustomerRepository, IdempotencyRepository, LockerRepository, PackageRepository, PackageRetrievalService, PickupCodeRepository, PickupCodeService, RequestContext, StorageChargeRepository, StorageChargeService, TransactionManager } from '../contracts/lifecycle.js';
 import { errors } from '../errors.js';
 
@@ -12,6 +12,23 @@ export class DefaultPackageRetrievalService implements PackageRetrievalService {
     private readonly charges: StorageChargeRepository, private readonly pricing: StorageChargeService,
     private readonly idempotency: IdempotencyRepository,
   ) {}
+
+  async quotePickup(request: RetrievePackageRequest, requestedAt: string): Promise<PickupQuoteResponse> {
+    return this.db.withinTransaction(async client => {
+      // These short-lived locks provide a consistent validation/quote snapshot; this endpoint changes no state.
+      const active = await this.packages.findStoredByLockerForUpdate(client, request.lockerId);
+      if (!active) {
+        const latest = await this.packages.findLatestByLockerForUpdate(client, request.lockerId);
+        if (latest?.status === 'COLLECTED') throw errors.alreadyCollected();
+        throw errors.invalidCode();
+      }
+      const customer = await this.customers.findByIdForUpdate(client, active.customerId);
+      const pickupCode = await this.pickupCodes.findByPackageForUpdate(client, active.id);
+      if (!customer || !pickupCode || pickupCode.consumedAt || !(await this.codeService.verify(request.pickupCode, pickupCode.pickupCodeHash))) throw errors.invalidCode();
+      const quote = this.pricing.calculateCharge({ storedAt: active.storedAt, collectedAt: requestedAt, baseDailyRateCents: active.baseDailyRateCents });
+      return { packageId: active.id, lockerId: active.lockerId, heldTimeMs: quote.heldTimeMs, calculatedChargesCents: quote.chargedAmountCents, walletBalanceCents: customer.walletBalanceCents, pickupConfirmed: true };
+    });
+  }
 
   async retrievePackage(request: RetrievePackageRequest, context: RequestContext): Promise<RetrievePackageResponse> {
     return this.db.withinTransaction(async client => {

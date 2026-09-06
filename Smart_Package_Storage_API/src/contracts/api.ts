@@ -49,6 +49,32 @@ export interface RetrievePackageRequest {
   readonly pickupCode: string;
 }
 
+/** A non-mutating validation and price quote for a locker pickup. */
+export interface PickupQuoteResponse {
+  readonly packageId: UUID;
+  readonly lockerId: UUID;
+  readonly heldTimeMs: Milliseconds;
+  readonly calculatedChargesCents: Cents;
+  readonly walletBalanceCents: Cents;
+  readonly pickupConfirmed: true;
+}
+
+export interface ConfirmPickupRequest extends RetrievePackageRequest {
+  /** Explicit acknowledgement that the prior pickup quote was reviewed. */
+  readonly pickupConfirmed: true;
+}
+
+export interface RechargeWalletRequest {
+  readonly customerId: UUID;
+  readonly amountCents: Cents;
+}
+
+export interface RechargeWalletResponse {
+  readonly customerId: UUID;
+  readonly rechargedAmountCents: Cents;
+  readonly walletBalanceCents: Cents;
+}
+
 export interface RetrievePackageResponse {
   readonly packageId: UUID;
   readonly collectedAt: IsoTimestamp;

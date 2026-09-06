@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateLockerRequest, RetrievePackageRequest, StorePackageRequest } from '../contracts/api.js';
-import type { LockerService, PackageRetrievalService, PackageStorageService, RequestContext } from '../contracts/lifecycle.js';
+import type { ConfirmPickupRequest, CreateLockerRequest, RechargeWalletRequest, RetrievePackageRequest, StorePackageRequest } from '../contracts/api.js';
+import type { LockerService, PackageRetrievalService, PackageStorageService, RequestContext, WalletService } from '../contracts/lifecycle.js';
 import { ApiError, errors } from '../errors.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -86,6 +86,17 @@ export const parseRetrievePackage = (body: unknown): RetrievePackageRequest => {
   };
 };
 
+export const parseConfirmPickup = (body: unknown): ConfirmPickupRequest => {
+  const request = parseRetrievePackage(body);
+  if (object(body).pickupConfirmed !== true) throw errors.validation('pickupConfirmed must be true.');
+  return { ...request, pickupConfirmed: true };
+};
+
+export const parseRechargeWallet = (body: unknown): RechargeWalletRequest => {
+  const value = object(body);
+  return { customerId: uuid(value.customerId, 'customerId'), amountCents: positiveInteger(value.amountCents, 'amountCents') as never };
+};
+
 export class LockerController {
   constructor(private readonly service: LockerService) {}
 
@@ -121,9 +132,29 @@ export class PackageController {
     }
   };
 
-  retrieve = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  quote = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      response.status(200).json(await this.retrieval.retrievePackage(parseRetrievePackage(request.body), mutationContext(request)));
+      response.status(200).json(await this.retrieval.quotePickup(parseRetrievePackage(request.body), new Date().toISOString()));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  confirm = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(200).json(await this.retrieval.retrievePackage(parseConfirmPickup(request.body), mutationContext(request)));
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export class WalletController {
+  constructor(private readonly service: WalletService) {}
+
+  recharge = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(200).json(await this.service.recharge(parseRechargeWallet(request.body), mutationContext(request)));
     } catch (error) {
       next(error);
     }

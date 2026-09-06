@@ -6,7 +6,7 @@ export const openApiDocument = {
     description: 'Transactional locker allocation, storage, and retrieval API. Monetary amounts are integer cents; all timestamps are ISO-8601 UTC.',
   },
   servers: [{ url: '/', description: 'Current server' }],
-  tags: [{ name: 'System' }, { name: 'Lockers' }, { name: 'Packages' }],
+  tags: [{ name: 'System' }, { name: 'Lockers' }, { name: 'Packages' }, { name: 'Wallet' }],
   paths: {
     '/health': {
       get: { tags: ['System'], summary: 'Health check', responses: { '200': { description: 'Service is healthy', content: { 'application/json': { schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', example: 'ok' } } } } } } } },
@@ -33,15 +33,30 @@ export const openApiDocument = {
         },
       },
     },
-    '/api/v1/packages/retrieve': {
+    '/api/v1/packages/retrieve/quote': {
       post: {
-        tags: ['Packages'], summary: 'Validate a pickup code, charge storage, collect package, and release locker',
-        description: 'The active package, locker, and customer are locked before charge calculation. Insufficient funds leave the package, code, and locker unchanged.',
-        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/RetrievePackageRequest' } } } },
+        tags: ['Packages'], summary: 'Validate pickup code and get a current charge quote',
+        description: 'This endpoint does not debit the wallet, collect the package, consume the code, or release the locker.',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/RetrievePackageRequest' } } } },
         responses: {
-          '200': { description: 'Package collected and locker released', content: { 'application/json': { schema: { $ref: '#/components/schemas/RetrievePackageResponse' } } } },
-          '400': { $ref: '#/components/responses/ValidationError' }, '403': { $ref: '#/components/responses/InvalidPickupCode' }, '409': { $ref: '#/components/responses/RetrievalConflict' }, '422': { $ref: '#/components/responses/InsufficientBalance' },
+          '200': { description: 'Code accepted and current quote returned', content: { 'application/json': { schema: { $ref: '#/components/schemas/PickupQuoteResponse' } } } },
+          '400': { $ref: '#/components/responses/ValidationError' }, '403': { $ref: '#/components/responses/InvalidPickupCode' }, '409': { $ref: '#/components/responses/RetrievalConflict' },
         },
+      },
+    },
+    '/api/v1/wallet/recharge': {
+      post: {
+        tags: ['Wallet'], summary: 'Recharge a customer wallet', description: 'Credits an integer-cent amount and records an immutable recharge receipt.',
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/RechargeWalletRequest' } } } },
+        responses: { '200': { description: 'Wallet recharged', content: { 'application/json': { schema: { $ref: '#/components/schemas/RechargeWalletResponse' } } } }, '400': { $ref: '#/components/responses/ValidationError' }, '404': { $ref: '#/components/responses/CustomerNotFound' }, '409': { $ref: '#/components/responses/IdempotencyConflict' } },
+      },
+    },
+    '/api/v1/packages/retrieve/confirm': {
+      post: {
+        tags: ['Packages'], summary: 'Pay from wallet and complete package pickup',
+        description: 'Re-validates the code and re-calculates the current charge inside a single transaction, then debits, collects, consumes the code, and releases the locker.',
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }], requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ConfirmPickupRequest' } } } },
+        responses: { '200': { description: 'Package collected and locker released', content: { 'application/json': { schema: { $ref: '#/components/schemas/RetrievePackageResponse' } } } }, '400': { $ref: '#/components/responses/ValidationError' }, '403': { $ref: '#/components/responses/InvalidPickupCode' }, '409': { $ref: '#/components/responses/RetrievalConflict' }, '422': { $ref: '#/components/responses/InsufficientBalance' } },
       },
     },
   },
@@ -56,6 +71,10 @@ export const openApiDocument = {
       StorePackageRequest: { type: 'object', additionalProperties: false, required: ['customerId', 'widthCm', 'heightCm', 'breadthCm', 'weightGrams', 'hasFragileItems'], properties: { customerId: { type: 'string', format: 'uuid' }, widthCm: { type: 'integer', minimum: 1 }, heightCm: { type: 'integer', minimum: 1 }, breadthCm: { type: 'integer', minimum: 1 }, weightGrams: { type: 'integer', minimum: 1 }, hasFragileItems: { type: 'boolean' } } },
       StorePackageResponse: { type: 'object', required: ['packageId', 'lockerId', 'lockerSize', 'pickupCode', 'storedAt'], properties: { packageId: { type: 'string', format: 'uuid' }, lockerId: { type: 'string', format: 'uuid' }, lockerSize: { $ref: '#/components/schemas/LockerSize' }, pickupCode: { type: 'string', pattern: '^\\d{6}$', description: 'Returned only at storage time.' }, storedAt: { type: 'string', format: 'date-time' } } },
       RetrievePackageRequest: { type: 'object', additionalProperties: false, required: ['lockerId', 'pickupCode'], properties: { lockerId: { type: 'string', format: 'uuid' }, pickupCode: { type: 'string', pattern: '^\\d{6}$' } } },
+      PickupQuoteResponse: { type: 'object', required: ['packageId', 'lockerId', 'heldTimeMs', 'calculatedChargesCents', 'walletBalanceCents', 'pickupConfirmed'], properties: { packageId: { type: 'string', format: 'uuid' }, lockerId: { type: 'string', format: 'uuid' }, heldTimeMs: { type: 'integer', minimum: 0 }, calculatedChargesCents: { type: 'integer', minimum: 0 }, walletBalanceCents: { type: 'integer', minimum: 0 }, pickupConfirmed: { type: 'boolean', enum: [true] } } },
+      ConfirmPickupRequest: { type: 'object', additionalProperties: false, required: ['lockerId', 'pickupCode', 'pickupConfirmed'], properties: { lockerId: { type: 'string', format: 'uuid' }, pickupCode: { type: 'string', pattern: '^\\d{6}$' }, pickupConfirmed: { type: 'boolean', enum: [true] } } },
+      RechargeWalletRequest: { type: 'object', additionalProperties: false, required: ['customerId', 'amountCents'], properties: { customerId: { type: 'string', format: 'uuid' }, amountCents: { type: 'integer', minimum: 1 } } },
+      RechargeWalletResponse: { type: 'object', required: ['customerId', 'rechargedAmountCents', 'walletBalanceCents'], properties: { customerId: { type: 'string', format: 'uuid' }, rechargedAmountCents: { type: 'integer', minimum: 1 }, walletBalanceCents: { type: 'integer', minimum: 0 } } },
       RetrievePackageResponse: { type: 'object', required: ['packageId', 'collectedAt', 'heldTimeMs', 'chargedAmountCents', 'walletBalanceCents', 'lockerReleased'], properties: { packageId: { type: 'string', format: 'uuid' }, collectedAt: { type: 'string', format: 'date-time' }, heldTimeMs: { type: 'integer', minimum: 0 }, chargedAmountCents: { type: 'integer', minimum: 0 }, walletBalanceCents: { type: 'integer', minimum: 0 }, lockerReleased: { type: 'boolean', enum: [true] } } },
       ErrorResponse: { type: 'object', required: ['error'], properties: { error: { type: 'object', required: ['code', 'message'], properties: { code: { type: 'string' }, message: { type: 'string' } } } } },
     },
@@ -67,6 +86,7 @@ export const openApiDocument = {
       InvalidPickupCode: { description: 'Locker ID or pickup code is invalid', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
       RetrievalConflict: { description: 'Package has already been collected or idempotency key was reused', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
       InsufficientBalance: { description: 'Customer wallet cannot cover the charge', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+      IdempotencyConflict: { description: 'Idempotency key was reused with a different payload', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
     },
   },
 } as const;

@@ -1,7 +1,7 @@
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { CreateLockerRequest } from '../contracts/api.js';
-import type { Customer, Locker, PickupCode, StorageCharge, StoredPackage, UUID } from '../contracts/domain.js';
-import type { CustomerRepository, IdempotencyRepository, IdempotencyResult, LockerCandidate, LockerRepository, PackageRepository, PickupCodeRepository, RequestContext, StorageChargeRepository } from '../contracts/lifecycle.js';
+import type { Customer, IdempotencyOperation, Locker, PickupCode, StorageCharge, StoredPackage, UUID } from '../contracts/domain.js';
+import type { CustomerRepository, IdempotencyRepository, IdempotencyResult, LockerCandidate, LockerRepository, PackageRepository, PickupCodeRepository, RequestContext, StorageChargeRepository, WalletRechargeRepository } from '../contracts/lifecycle.js';
 import { toCustomer, toLocker, toPackage, toPickupCode, toStorageCharge } from './mappers.js';
 
 const one = <T extends QueryResultRow>(rows: readonly T[]): T => {
@@ -93,6 +93,11 @@ export class PgCustomerRepository implements CustomerRepository {
     return toCustomer(one(r.rows));
   }
 
+  async creditWallet(client: PoolClient, id: UUID, amount: Customer['walletBalanceCents']): Promise<Customer> {
+    const r = await client.query('UPDATE customers SET wallet_balance_cents = wallet_balance_cents + $2, updated_at = now() WHERE id = $1 RETURNING *', [id, amount]);
+    return toCustomer(one(r.rows));
+  }
+
   async recordCheckIn(client: PoolClient, id: UUID, checkedInAt: string): Promise<void> {
     await client.query('UPDATE customers SET current_packages = current_packages + 1, total_packages = total_packages + 1, last_checked_in_at = $2, updated_at = now() WHERE id = $1', [id, checkedInAt]);
   }
@@ -168,14 +173,20 @@ export class PgStorageChargeRepository implements StorageChargeRepository {
   }
 }
 
+export class PgWalletRechargeRepository implements WalletRechargeRepository {
+  async create(client: PoolClient, input: { readonly customerId: UUID; readonly idempotencyKey: UUID; readonly amountCents: Customer['walletBalanceCents'] }): Promise<void> {
+    await client.query('INSERT INTO wallet_recharges (customer_id, idempotency_key, amount_cents) VALUES ($1, $2, $3)', [input.customerId, input.idempotencyKey, input.amountCents]);
+  }
+}
+
 export class PgIdempotencyRepository implements IdempotencyRepository {
-  async lock(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE'): Promise<void> {
+  async lock(client: PoolClient, context: RequestContext, operation: IdempotencyOperation): Promise<void> {
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
       `${operation}:${context.idempotencyKey}`
     ]);
   }
   
-  async find<T>(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE'): Promise<IdempotencyResult<T> | null> {
+  async find<T>(client: PoolClient, context: RequestContext, operation: IdempotencyOperation): Promise<IdempotencyResult<T> | null> {
     const r = await client.query('SELECT request_hash, response_status, response_body FROM idempotency_records WHERE operation = $1 AND idempotency_key = $2 FOR UPDATE', [
       operation,
       context.idempotencyKey
@@ -189,7 +200,7 @@ export class PgIdempotencyRepository implements IdempotencyRepository {
     };
   }
 
-  async save<T>(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE', status: number, response: T): Promise<void> {
+  async save<T>(client: PoolClient, context: RequestContext, operation: IdempotencyOperation, status: number, response: T): Promise<void> {
     await client.query('INSERT INTO idempotency_records (operation, idempotency_key, request_hash, response_status, response_body) VALUES ($1,$2,$3,$4,$5::jsonb)', [
       operation,
       context.idempotencyKey,

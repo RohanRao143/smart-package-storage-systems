@@ -9,7 +9,7 @@ export type Grams = number & { readonly __brand: 'Grams' };
 export type LockerSize = 'SMALL' | 'MEDIUM' | 'LARGE';
 export type PackageStatus = 'STORED' | 'COLLECTED';
 export type ChargeStatus = 'PAID' | 'FAILED';
-export type IdempotencyOperation = 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE';
+export type IdempotencyOperation = 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE' | 'RECHARGE_WALLET';
 
 export interface Dimensions {
   readonly widthCm: Centimetres;

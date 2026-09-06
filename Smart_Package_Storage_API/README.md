@@ -22,7 +22,9 @@ All money contracts use integer cents. Store and retrieve require an `Idempotenc
 - `POST /api/v1/lockers`
 - `GET /api/v1/lockers?available=true`
 - `POST /api/v1/packages/store` (requires `Idempotency-Key`)
-- `POST /api/v1/packages/retrieve` (requires `Idempotency-Key`)
+- `POST /api/v1/packages/retrieve/quote` (validates code and returns the current charge; no mutation)
+- `POST /api/v1/wallet/recharge` (requires `Idempotency-Key`)
+- `POST /api/v1/packages/retrieve/confirm` (requires `Idempotency-Key`; charges and releases locker)
 
 Interactive Swagger UI is available at `/api-docs`; the raw OpenAPI document is at `/openapi.json`.
 

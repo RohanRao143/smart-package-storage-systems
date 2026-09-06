@@ -11,6 +11,7 @@ import type {
   StorageCharge,
   StoredPackage,
   UUID,
+  IdempotencyOperation,
 } from './domain.js';
 import type {
   CreateLockerRequest,
@@ -19,6 +20,9 @@ import type {
   LockerSummaryResponse,
   RetrievePackageRequest,
   RetrievePackageResponse,
+  PickupQuoteResponse,
+  RechargeWalletRequest,
+  RechargeWalletResponse,
   StorePackageRequest,
   StorePackageResponse,
 } from './api.js';
@@ -45,8 +49,14 @@ export interface PackageStorageService {
 }
 
 export interface PackageRetrievalService {
+  /** Validates a code and provides a non-mutating current quote and wallet balance. */
+  quotePickup(request: RetrievePackageRequest, requestedAt: IsoTimestamp): Promise<PickupQuoteResponse>;
   /** Atomic lifecycle: lock -> validate code -> charge -> collect -> consume code -> release. */
   retrievePackage(request: RetrievePackageRequest, context: RequestContext): Promise<RetrievePackageResponse>;
+}
+
+export interface WalletService {
+  recharge(request: RechargeWalletRequest, context: RequestContext): Promise<RechargeWalletResponse>;
 }
 
 export interface LockerService {
@@ -88,6 +98,7 @@ export interface LockerRepository {
 export interface CustomerRepository {
   findByIdForUpdate(client: PoolClient, customerId: UUID): Promise<Customer | null>;
   debitWallet(client: PoolClient, customerId: UUID, amountCents: Cents): Promise<Customer>;
+  creditWallet(client: PoolClient, customerId: UUID, amountCents: Cents): Promise<Customer>;
   recordCheckIn(client: PoolClient, customerId: UUID, checkedInAt: IsoTimestamp): Promise<void>;
   recordCollection(client: PoolClient, customerId: UUID): Promise<void>;
 }
@@ -109,12 +120,16 @@ export interface StorageChargeRepository {
   create(client: PoolClient, input: Omit<StorageCharge, 'id' | 'chargedAt'>): Promise<StorageCharge>;
 }
 
+export interface WalletRechargeRepository {
+  create(client: PoolClient, input: { readonly customerId: UUID; readonly idempotencyKey: UUID; readonly amountCents: Cents }): Promise<void>;
+}
+
 export interface IdempotencyRepository {
   /** Serializes first-use requests for the same key before checking the record. */
-  lock(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE'): Promise<void>;
+  lock(client: PoolClient, context: RequestContext, operation: IdempotencyOperation): Promise<void>;
   /** Returns the previous result for a safe retry; a changed payload is rejected. */
-  find<TResponse>(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE'): Promise<IdempotencyResult<TResponse> | null>;
-  save<TResponse>(client: PoolClient, context: RequestContext, operation: 'STORE_PACKAGE' | 'RETRIEVE_PACKAGE', responseStatus: number, response: TResponse): Promise<void>;
+  find<TResponse>(client: PoolClient, context: RequestContext, operation: IdempotencyOperation): Promise<IdempotencyResult<TResponse> | null>;
+  save<TResponse>(client: PoolClient, context: RequestContext, operation: IdempotencyOperation, responseStatus: number, response: TResponse): Promise<void>;
 }
 
 export interface IdempotencyResult<TResponse> {

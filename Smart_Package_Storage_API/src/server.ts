@@ -1,12 +1,13 @@
 import { createApp } from './app.js';
 import { PgDatabase } from './db/postgres-database.js';
-import { PgCustomerRepository, PgIdempotencyRepository, PgLockerRepository, PgPackageRepository, PgPickupCodeRepository, PgStorageChargeRepository } from './db/repositories.js';
+import { PgCustomerRepository, PgIdempotencyRepository, PgLockerRepository, PgPackageRepository, PgPickupCodeRepository, PgStorageChargeRepository, PgWalletRechargeRepository } from './db/repositories.js';
 import { PostgresLockerAllocationService } from './services/locker-allocation-service.js';
 import { DefaultLockerService } from './services/locker-service.js';
 import { DefaultPackageRetrievalService } from './services/package-retrieval-service.js';
 import { DefaultPackageStorageService } from './services/package-storage-service.js';
 import { SecurePickupCodeService } from './services/pickup-code-service.js';
 import { ProgressiveStorageChargeService } from './services/storage-charge-service.js';
+import { DefaultWalletService } from './services/wallet-service.js';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv();
@@ -26,6 +27,7 @@ const packages = new PgPackageRepository();
 const pickupCodes = new PgPickupCodeRepository();
 const idempotency = new PgIdempotencyRepository();
 const storageCharge = new PgStorageChargeRepository();
+const walletRecharges = new PgWalletRechargeRepository();
 
 
 const codeService = new SecurePickupCodeService();
@@ -60,6 +62,7 @@ const app = createApp({
     storageChargeService,
     idempotency
   ),
+  wallet: new DefaultWalletService(db, customers, walletRecharges, idempotency),
 });
 
 app.listen(port, () => {
