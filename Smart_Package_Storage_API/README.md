@@ -24,4 +24,6 @@ All money contracts use integer cents. Store and retrieve require an `Idempotenc
 - `POST /api/v1/packages/store` (requires `Idempotency-Key`)
 - `POST /api/v1/packages/retrieve` (requires `Idempotency-Key`)
 
+Interactive Swagger UI is available at `/api-docs`; the raw OpenAPI document is at `/openapi.json`.
+
 Configure `.env` from `.env.example`, apply the SQL migrations from the repository root, then run `npm install` and `npm run dev`.
