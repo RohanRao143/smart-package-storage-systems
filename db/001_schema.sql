@@ -37,6 +37,7 @@ CREATE TABLE lockers (
 CREATE TABLE packages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   locker_id uuid NOT NULL REFERENCES lockers(id),
+  package_name varchar(50) NOT NULL,
   customer_id uuid NOT NULL REFERENCES customers(id),
   status package_status NOT NULL DEFAULT 'STORED',
   stored_at timestamptz NOT NULL DEFAULT now(),

@@ -97,6 +97,7 @@ export interface LockerRepository {
 
 export interface CustomerRepository {
   findByIdForUpdate(client: PoolClient, customerId: UUID): Promise<Customer | null>;
+  findByUsernameForUpdate(client: PoolClient, username: string): Promise<Customer | null>;
   debitWallet(client: PoolClient, customerId: UUID, amountCents: Cents): Promise<Customer>;
   creditWallet(client: PoolClient, customerId: UUID, amountCents: Cents): Promise<Customer>;
   recordCheckIn(client: PoolClient, customerId: UUID, checkedInAt: IsoTimestamp): Promise<void>;
@@ -104,10 +105,10 @@ export interface CustomerRepository {
 }
 
 export interface PackageRepository {
-  create(client: PoolClient, input: Omit<StoredPackage, 'id' | 'status' | 'collectedAt'>): Promise<StoredPackage>;
+  create(client: PoolClient, input: Omit<StoredPackage, 'id' | 'status' | 'collectedAt' | 'receivedBy'>): Promise<StoredPackage>;
   findStoredByLockerForUpdate(client: PoolClient, lockerId: UUID): Promise<StoredPackage | null>;
   findLatestByLockerForUpdate(client: PoolClient, lockerId: UUID): Promise<StoredPackage | null>;
-  markCollected(client: PoolClient, packageId: UUID, collectedAt: IsoTimestamp): Promise<StoredPackage>;
+  markCollected(client: PoolClient, packageId: UUID, receivedBy: UUID, collectedAt: IsoTimestamp): Promise<StoredPackage>;
 }
 
 export interface PickupCodeRepository {

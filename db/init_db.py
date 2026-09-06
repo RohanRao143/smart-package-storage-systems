@@ -8,7 +8,7 @@ DB_PORT = "5432"
 DB_USER = "postgres"
 DB_PASSWORD = "password"
 TARGET_DB = "smart_package_storage"
-SQL_FILE_PATH = "003_wallet_recharges.sql"
+SQL_FILE_PATH = "002_dev_seed.sql"
 
 
 def create_database_if_not_exists():

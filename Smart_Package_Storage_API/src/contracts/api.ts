@@ -27,7 +27,8 @@ export interface LockerSummaryResponse {
 }
 
 export interface StorePackageRequest {
-  readonly customerId: UUID;
+  readonly storedByUsername: string;
+  readonly recipientUsername: string;
   readonly widthCm: number;
   readonly heightCm: number;
   readonly breadthCm: number;
@@ -47,6 +48,7 @@ export interface StorePackageResponse {
 export interface RetrievePackageRequest {
   readonly lockerId: UUID;
   readonly pickupCode: string;
+  readonly receivedByUsername: string;
 }
 
 /** A non-mutating validation and price quote for a locker pickup. */

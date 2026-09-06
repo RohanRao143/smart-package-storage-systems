@@ -30,6 +30,12 @@ const uuid = (value: unknown, field: string): string => {
   return value;
 };
 
+const username = (value: unknown, field: string): string => {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_]{3,80}$/.test(value))
+    throw errors.validation(`${field} must contain 3-80 letters, numbers, or underscores.`);
+  return value;
+};
+
 const stableJson = (value: unknown): string => {
   if (Array.isArray(value))
     return `[${value.map(stableJson).join(',')}]`;
@@ -67,7 +73,8 @@ export const parseCreateLocker = (body: unknown): CreateLockerRequest => {
 export const parseStorePackage = (body: unknown): StorePackageRequest => {
   const value = object(body);
   return {
-    customerId: uuid(value.customerId, 'customerId'),
+    storedByUsername: username(value.storedByUsername, 'storedByUsername'),
+    recipientUsername: username(value.recipientUsername, 'recipientUsername'),
     widthCm: positiveInteger(value.widthCm, 'widthCm'),
     heightCm: positiveInteger(value.heightCm, 'heightCm'),
     breadthCm: positiveInteger(value.breadthCm, 'breadthCm'),
@@ -82,7 +89,8 @@ export const parseRetrievePackage = (body: unknown): RetrievePackageRequest => {
     throw errors.validation('pickupCode must be a six-digit code.');
   return {
     lockerId: uuid(value.lockerId, 'lockerId'),
-    pickupCode: value.pickupCode
+    pickupCode: value.pickupCode,
+    receivedByUsername: username(value.receivedByUsername, 'receivedByUsername')
   };
 };
 

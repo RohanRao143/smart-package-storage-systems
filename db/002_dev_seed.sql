@@ -6,5 +6,6 @@ VALUES
   ('MEDIUM', 2, 50, 50, 50, 15000, true),
   ('LARGE', 3, 80, 80, 80, 30000, true);
 
-INSERT INTO customers (name, email, phone_number, wallet_balance_cents)
-VALUES ('Demo Customer', 'demo@example.test', '+15550000001', 10000);
+INSERT INTO customers (name, username, email, phone_number, wallet_balance_cents)
+VALUES ('Delivery Agent', 'delivery_agent', 'delivery_agent@example.test', '+15550000001', 10000),
+('Car workshop', 'vehicle_workshop', 'vehicle_workshop@example.test', '+15550000002', 10000);

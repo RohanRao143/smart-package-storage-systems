@@ -26,8 +26,9 @@ export class DefaultPackageStorageService implements PackageStorageService {
         return prior.response;
       }
 
-      const customer = await this.customers.findByIdForUpdate(client, request.customerId);
-      if (!customer)
+      const storedBy = await this.customers.findByUsernameForUpdate(client, request.storedByUsername);
+      const recipient = await this.customers.findByUsernameForUpdate(client, request.recipientUsername);
+      if (!storedBy || !recipient)
         throw errors.customerNotFound();
       
       const locker = await this.allocation.findAndLockSuitableLocker(client, request as unknown as LockerCandidate);
@@ -40,7 +41,8 @@ export class DefaultPackageStorageService implements PackageStorageService {
       const { rawCode, hash } = await this.codeService.generate();
       await this.packages.create(client, {
         lockerId: locker.id,
-        customerId: customer.id,
+        customerId: recipient.id,
+        storedBy: storedBy.id,
         storedAt: context.requestedAt,
         widthCm: request.widthCm as never,
         heightCm: request.heightCm as never,
@@ -55,12 +57,12 @@ export class DefaultPackageStorageService implements PackageStorageService {
         throw new Error('Package creation did not produce an active package.');
       await this.pickupCodes.create(client, {
         packageId: stored.id,
-        customerId: customer.id,
+        customerId: recipient.id,
         lockerId: locker.id,
         pickupCodeHash: hash
       });
 
-      await this.customers.recordCheckIn(client, customer.id, context.requestedAt);
+      await this.customers.recordCheckIn(client, recipient.id, context.requestedAt);
 
       const response: StorePackageResponse = {
         packageId: stored.id,

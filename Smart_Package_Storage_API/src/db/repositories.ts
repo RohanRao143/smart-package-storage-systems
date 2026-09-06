@@ -88,6 +88,11 @@ export class PgCustomerRepository implements CustomerRepository {
     return r.rows[0] ? toCustomer(r.rows[0]) : null;
   }
 
+  async findByUsernameForUpdate(client: PoolClient, username: string): Promise<Customer | null> {
+    const r = await client.query('SELECT * FROM customers WHERE username = $1 FOR UPDATE', [username]);
+    return r.rows[0] ? toCustomer(r.rows[0]) : null;
+  }
+
   async debitWallet(client: PoolClient, id: UUID, amount: Customer['walletBalanceCents']): Promise<Customer> {
     const r = await client.query('UPDATE customers SET wallet_balance_cents = wallet_balance_cents - $2, updated_at = now() WHERE id = $1 AND wallet_balance_cents >= $2 RETURNING *', [id, amount]);
     return toCustomer(one(r.rows));
@@ -108,10 +113,11 @@ export class PgCustomerRepository implements CustomerRepository {
 }
 
 export class PgPackageRepository implements PackageRepository {
-  async create(client: PoolClient, p: Omit<StoredPackage, 'id' | 'status' | 'collectedAt'>): Promise<StoredPackage> {
-    const r = await client.query('INSERT INTO packages (locker_id, customer_id, stored_at, width_cm, height_cm, breadth_cm, weight_grams, has_fragile_items, base_daily_rate_cents) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *', [
+  async create(client: PoolClient, p: Omit<StoredPackage, 'id' | 'status' | 'collectedAt' | 'receivedBy'>): Promise<StoredPackage> {
+    const r = await client.query('INSERT INTO packages (locker_id, customer_id, stored_by, stored_at, width_cm, height_cm, breadth_cm, weight_grams, has_fragile_items, base_daily_rate_cents) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [
       p.lockerId,
       p.customerId,
+      p.storedBy,
       p.storedAt,
       p.widthCm,
       p.heightCm,
@@ -133,8 +139,8 @@ export class PgPackageRepository implements PackageRepository {
     return r.rows[0] ? toPackage(r.rows[0]) : null;
   }
 
-  async markCollected(client: PoolClient, id: UUID, collectedAt: string): Promise<StoredPackage> {
-    const r = await client.query("UPDATE packages SET status = 'COLLECTED', collected_at = $2 WHERE id = $1 AND status = 'STORED' RETURNING *", [id, collectedAt]);
+  async markCollected(client: PoolClient, id: UUID, receivedBy: UUID, collectedAt: string): Promise<StoredPackage> {
+    const r = await client.query("UPDATE packages SET status = 'COLLECTED', received_by = $2, collected_at = $3 WHERE id = $1 AND status = 'STORED' RETURNING *", [id, receivedBy, collectedAt]);
     return toPackage(one(r.rows));
   }
 }

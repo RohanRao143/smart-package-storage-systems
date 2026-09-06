@@ -22,11 +22,12 @@ export class DefaultPackageRetrievalService implements PackageRetrievalService {
         if (latest?.status === 'COLLECTED') throw errors.alreadyCollected();
         throw errors.invalidCode();
       }
-      const customer = await this.customers.findByIdForUpdate(client, active.customerId);
+      const receiver = await this.customers.findByUsernameForUpdate(client, request.receivedByUsername);
       const pickupCode = await this.pickupCodes.findByPackageForUpdate(client, active.id);
-      if (!customer || !pickupCode || pickupCode.consumedAt || !(await this.codeService.verify(request.pickupCode, pickupCode.pickupCodeHash))) throw errors.invalidCode();
+      if (!receiver) throw errors.customerNotFound();
+      if (!pickupCode || pickupCode.consumedAt || !(await this.codeService.verify(request.pickupCode, pickupCode.pickupCodeHash))) throw errors.invalidCode();
       const quote = this.pricing.calculateCharge({ storedAt: active.storedAt, collectedAt: requestedAt, baseDailyRateCents: active.baseDailyRateCents });
-      return { packageId: active.id, lockerId: active.lockerId, heldTimeMs: quote.heldTimeMs, calculatedChargesCents: quote.chargedAmountCents, walletBalanceCents: customer.walletBalanceCents, pickupConfirmed: true };
+      return { packageId: active.id, lockerId: active.lockerId, heldTimeMs: quote.heldTimeMs, calculatedChargesCents: quote.chargedAmountCents, walletBalanceCents: receiver.walletBalanceCents, pickupConfirmed: true };
     });
   }
 
@@ -53,8 +54,9 @@ export class DefaultPackageRetrievalService implements PackageRetrievalService {
 
       // When locker or customer reference to a package is missing
       const locker = await this.lockers.findByIdForUpdate(client, active.lockerId);
-      const customer = await this.customers.findByIdForUpdate(client, active.customerId);
-      if (!locker || !customer)
+      const owner = await this.customers.findByIdForUpdate(client, active.customerId);
+      const receiver = await this.customers.findByUsernameForUpdate(client, request.receivedByUsername);
+      if (!locker || !owner || !receiver)
         throw new Error('Package references missing locker or customer.');
 
       //  For Invalid pickup code
@@ -64,11 +66,11 @@ export class DefaultPackageRetrievalService implements PackageRetrievalService {
       
       // Rejects when there is insufficient balance
       const quote = this.pricing.calculateCharge({ storedAt: active.storedAt, collectedAt: context.requestedAt, baseDailyRateCents: active.baseDailyRateCents });
-      if (customer.walletBalanceCents < quote.chargedAmountCents)
+      if (receiver.walletBalanceCents < quote.chargedAmountCents)
         throw errors.insufficientBalance();
 
       // Deduct charges from wallet or later can be redirected to Payment Gateway
-      const wallet = await this.customers.debitWallet(client, customer.id, quote.chargedAmountCents);
+      const wallet = await this.customers.debitWallet(client, receiver.id, quote.chargedAmountCents);
       await this.charges.create(client, {
         packageId: active.id,
         pickupCodeId: pickupCode.id,
@@ -78,9 +80,9 @@ export class DefaultPackageRetrievalService implements PackageRetrievalService {
       });
 
       // Release Package
-      await this.packages.markCollected(client, active.id, context.requestedAt);
+      await this.packages.markCollected(client, active.id, receiver.id, context.requestedAt);
       await this.pickupCodes.consume(client, pickupCode.id, context.requestedAt);
-      await this.customers.recordCollection(client, customer.id);
+      await this.customers.recordCollection(client, owner.id);
       await this.lockers.release(client, locker.id);
 
       const response: RetrievePackageResponse = {

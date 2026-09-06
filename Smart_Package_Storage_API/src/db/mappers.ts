@@ -23,6 +23,7 @@ export const toLocker = (row: QueryResultRow): Locker => ({
 
 export const toCustomer = (row: QueryResultRow): Customer => ({
   id: row.id,
+  username: row.username,
   name: row.name,
   email: row.email,
   phoneNumber: row.phone_number,
@@ -36,6 +37,8 @@ export const toPackage = (row: QueryResultRow): StoredPackage => ({
   id: row.id,
   lockerId: row.locker_id,
   customerId: row.customer_id,
+  storedBy: row.stored_by,
+  receivedBy: row.received_by,
   status: row.status,
   storedAt: timestamp(row.stored_at),
   collectedAt: row.collected_at ? timestamp(row.collected_at) : null,

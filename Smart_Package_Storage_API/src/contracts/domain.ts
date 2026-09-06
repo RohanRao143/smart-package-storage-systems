@@ -29,6 +29,7 @@ export interface Locker extends Dimensions {
 
 export interface Customer {
   readonly id: UUID;
+  readonly username: string;
   readonly name: string;
   readonly email: string;
   readonly phoneNumber: string;
@@ -42,6 +43,10 @@ export interface StoredPackage extends Dimensions {
   readonly id: UUID;
   readonly lockerId: UUID;
   readonly customerId: UUID;
+  /** Delivery actor that checked the package into a locker. */
+  readonly storedBy: UUID;
+  /** Collection actor; null until collection completes successfully. */
+  readonly receivedBy: UUID | null;
   readonly status: PackageStatus;
   readonly storedAt: IsoTimestamp;
   readonly collectedAt: IsoTimestamp | null;
