@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { confirmPickup, getQuote, storePackage } from "./api";
 
 const emptyStore = {
-  username: "", packageName: "", widthCm: "", heightCm: "",
+  agentUsername: "", customerUsername: "", packageName: "", widthCm: "", heightCm: "",
   breadthCm: "", weightGrams: "", hasFragileItems: false
 };
 const emptyRetrieve = { username: "", lockerId: "", pickupCode: "" };
@@ -31,9 +31,16 @@ function StorePage() {
   async function submit(e) {
     e.preventDefault(); setError(""); setResult(null); setLoading(true);
     try {
+      // 1. Generate a unique UUID for this specific transaction attempt
+      const idempotencyKey = crypto.randomUUID();
+
+      console.log(form)
+      
       const payload = {
         // Replace this placeholder mapping with your real username -> customer UUID lookup.
-        customerId: form.username,
+        // customerId: form.username,
+        storedByUsername: form.agentUsername,
+        recipientUsername: form.customerUsername,
         packageName: form.packageName.trim(),
         widthCm: Number(form.widthCm),
         heightCm: Number(form.heightCm),
@@ -41,7 +48,7 @@ function StorePage() {
         weightGrams: Number(form.weightGrams),
         hasFragileItems: form.hasFragileItems
       };
-      setResult(await storePackage(payload));
+      setResult(await storePackage(payload, idempotencyKey));
       setForm(emptyStore);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -54,8 +61,13 @@ function StorePage() {
       <p className="muted">Enter the customer and package details. The system assigns the smallest compatible locker.</p>
 
       <form onSubmit={submit}>
+        <Field label="Agent username">
+          <input value={form.agentUsername} onChange={e => update("agentUsername", e.target.value)}
+            placeholder="e.g. john.doe" required />
+        </Field>
+
         <Field label="Customer username">
-          <input value={form.username} onChange={e => update("username", e.target.value)}
+          <input value={form.customerUsername} onChange={e => update("customerUsername", e.target.value)}
             placeholder="e.g. john.doe" required />
         </Field>
 
@@ -126,6 +138,7 @@ function RetrievePage() {
     e.preventDefault(); setError(""); setConfirmed(null); setQuote(null); setLoading(true);
     try {
       setQuote(await getQuote({
+        receivedByUsername: form.username,
         lockerId: form.lockerId.trim(),
         pickupCode: form.pickupCode.trim()
       }));
@@ -136,11 +149,13 @@ function RetrievePage() {
   async function confirm() {
     setError(""); setLoading(true);
     try {
+      const idempotencyKey = crypto.randomUUID();
       setConfirmed(await confirmPickup({
+        receivedByUsername: form.username,
         lockerId: form.lockerId.trim(),
         pickupCode: form.pickupCode.trim(),
         pickupConfirmed: true
-      }));
+      }, idempotencyKey));
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
