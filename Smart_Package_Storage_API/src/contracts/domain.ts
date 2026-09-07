@@ -54,6 +54,7 @@ export interface StoredPackage extends Dimensions {
   readonly hasFragileItems: boolean;
   /** Tariff snapshot captured at check-in, not the current configured tariff. */
   readonly baseDailyRateCents: Cents;
+  readonly packageName: string;
 }
 
 export interface PickupCode {

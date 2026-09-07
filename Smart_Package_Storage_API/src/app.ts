@@ -3,6 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import type { LockerService, PackageRetrievalService, PackageStorageService, WalletService } from './contracts/lifecycle.js';
 import { errorHandler, LockerController, PackageController, WalletController } from './http/controllers.js';
 import { openApiDocument } from './openapi.js';
+import cors from 'cors'; // Import cors
 
 export interface AppServices {
   readonly lockers: LockerService;
@@ -14,6 +15,7 @@ export interface AppServices {
 export function createApp(services: AppServices): Express {
   const app = express();
   app.use(express.json());
+  app.use(cors());
   app.get('/health', (_request, response) => response.status(200).json({ status: 'ok' }));
   app.get('/openapi.json', (_request, response) => response.json(openApiDocument));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, { explorer: true }));

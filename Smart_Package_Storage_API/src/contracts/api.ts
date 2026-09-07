@@ -29,6 +29,7 @@ export interface LockerSummaryResponse {
 export interface StorePackageRequest {
   readonly storedByUsername: string;
   readonly recipientUsername: string;
+  readonly packageName: string;
   readonly widthCm: number;
   readonly heightCm: number;
   readonly breadthCm: number;

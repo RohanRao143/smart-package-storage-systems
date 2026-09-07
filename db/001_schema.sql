@@ -89,5 +89,35 @@ CREATE TABLE idempotency_records (
   UNIQUE (operation, idempotency_key)
 );
 
+-- Split pickup flow support: immutable audit records for wallet top-ups.
+ALTER TABLE idempotency_records DROP CONSTRAINT IF EXISTS idempotency_records_operation_check;
+ALTER TABLE idempotency_records ADD CONSTRAINT idempotency_records_operation_check
+  CHECK (operation IN ('STORE_PACKAGE', 'RETRIEVE_PACKAGE', 'RECHARGE_WALLET'));
+
+CREATE TABLE wallet_recharges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL REFERENCES customers(id),
+  idempotency_key uuid NOT NULL UNIQUE,
+  amount_cents bigint NOT NULL CHECK (amount_cents > 0),
+  recharged_at timestamptz NOT NULL DEFAULT now()
+);
+
+
+-- Delivery and collection actors are independent; package ownership remains customer_id.
+ALTER TABLE customers ADD COLUMN username varchar(80);
+UPDATE customers
+SET username = lower(regexp_replace(split_part(email, '@', 1), '[^a-zA-Z0-9_]', '', 'g')) || '_' || left(id::text, 8)
+WHERE username IS NULL;
+ALTER TABLE customers ALTER COLUMN username SET NOT NULL;
+ALTER TABLE customers ADD CONSTRAINT customers_username_key UNIQUE (username);
+
+ALTER TABLE packages ADD COLUMN stored_by uuid;
+ALTER TABLE packages ADD COLUMN received_by uuid REFERENCES customers(id);
+UPDATE packages SET stored_by = customer_id WHERE stored_by IS NULL;
+ALTER TABLE packages ALTER COLUMN stored_by SET NOT NULL;
+ALTER TABLE packages ADD CONSTRAINT packages_stored_by_fkey FOREIGN KEY (stored_by) REFERENCES customers(id);
+
+
+
 CREATE INDEX available_lockers_by_rank
   ON lockers(size_rank, id) WHERE is_occupied = false;

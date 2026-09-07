@@ -114,7 +114,7 @@ export class PgCustomerRepository implements CustomerRepository {
 
 export class PgPackageRepository implements PackageRepository {
   async create(client: PoolClient, p: Omit<StoredPackage, 'id' | 'status' | 'collectedAt' | 'receivedBy'>): Promise<StoredPackage> {
-    const r = await client.query('INSERT INTO packages (locker_id, customer_id, stored_by, stored_at, width_cm, height_cm, breadth_cm, weight_grams, has_fragile_items, base_daily_rate_cents) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [
+    const r = await client.query('INSERT INTO packages (locker_id, customer_id, stored_by, stored_at, width_cm, height_cm, breadth_cm, weight_grams, has_fragile_items, base_daily_rate_cents, package_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *', [
       p.lockerId,
       p.customerId,
       p.storedBy,
@@ -124,7 +124,8 @@ export class PgPackageRepository implements PackageRepository {
       p.breadthCm,
       p.weightGrams,
       p.hasFragileItems,
-      p.baseDailyRateCents
+      p.baseDailyRateCents,
+      p.packageName
     ]);
     return toPackage(one(r.rows));
   }

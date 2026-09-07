@@ -50,6 +50,7 @@ export class DefaultPackageStorageService implements PackageStorageService {
         weightGrams: request.weightGrams as never,
         hasFragileItems: request.hasFragileItems,
         baseDailyRateCents: this.baseDailyRateCents,
+        packageName: request.packageName,
       });
 
       const stored = await this.packages.findStoredByLockerForUpdate(client, locker.id);

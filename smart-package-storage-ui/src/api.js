@@ -4,8 +4,8 @@ function idempotencyKey() {
   return crypto.randomUUID();
 }
 
-async function request(path, { method = "POST", body, idempotent = false } = {}) {
-  const headers = { "Content-Type": "application/json" };
+async function request(path, { method = "POST", body, _headers, idempotent = false } = {}) {
+  const headers = { "Content-Type": "application/json", ..._headers };
   if (idempotent) headers["Idempotency-Key"] = idempotencyKey();
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -24,11 +24,28 @@ async function request(path, { method = "POST", body, idempotent = false } = {})
   return data;
 }
 
-export const storePackage = (payload) =>
-  request("/api/v1/packages/store", { body: payload, idempotent: true });
+export const storePackage = (payload, idempotencyKey) =>
+  request("/api/v1/packages/store", { 
+    body: payload,
+    headers: {
+      'Accept': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
+    idempotent: true
+  });
 
 export const getQuote = (payload) =>
-  request("/api/v1/packages/retrieve/quote", { body: payload });
+  request("/api/v1/packages/retrieve/quote", {
+    body: payload,
+    headers: {},
+   });
 
-export const confirmPickup = (payload) =>
-  request("/api/v1/packages/retrieve/confirm", { body: payload, idempotent: true });
+export const confirmPickup = (payload, idempotencyKey) =>
+  request("/api/v1/packages/retrieve/confirm", { 
+    body: payload,
+        headers: {
+      'Accept': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
+    idempotent: true
+  });

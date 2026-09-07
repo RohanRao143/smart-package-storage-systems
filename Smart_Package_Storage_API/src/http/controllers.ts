@@ -31,8 +31,14 @@ const uuid = (value: unknown, field: string): string => {
 };
 
 const username = (value: unknown, field: string): string => {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9_]{3,80}$/.test(value))
+  if (typeof value !== 'string' || !/^\w{3,80}$/.test(value))
     throw errors.validation(`${field} must contain 3-80 letters, numbers, or underscores.`);
+  return value;
+};
+
+const checkString = (value: unknown, field: string): string => {
+  if (typeof value !== 'string')
+    throw errors.validation(`${field} must be a boolean.`);
   return value;
 };
 
@@ -72,7 +78,9 @@ export const parseCreateLocker = (body: unknown): CreateLockerRequest => {
 
 export const parseStorePackage = (body: unknown): StorePackageRequest => {
   const value = object(body);
+  console.log(value)
   return {
+    packageName: checkString(value.packageName, 'packageName'),
     storedByUsername: username(value.storedByUsername, 'storedByUsername'),
     recipientUsername: username(value.recipientUsername, 'recipientUsername'),
     widthCm: positiveInteger(value.widthCm, 'widthCm'),
