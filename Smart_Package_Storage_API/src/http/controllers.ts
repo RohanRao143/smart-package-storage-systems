@@ -78,7 +78,6 @@ export const parseCreateLocker = (body: unknown): CreateLockerRequest => {
 
 export const parseStorePackage = (body: unknown): StorePackageRequest => {
   const value = object(body);
-  console.log(value)
   return {
     packageName: checkString(value.packageName, 'packageName'),
     storedByUsername: username(value.storedByUsername, 'storedByUsername'),
