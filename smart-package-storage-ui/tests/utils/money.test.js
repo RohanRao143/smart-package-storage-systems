@@ -4,7 +4,7 @@ import {
   it,
 } from 'vitest';
 
-import { money } from '../../src/utils/money';
+import { money } from '../../src/App';
 
 describe('money', () => {
   it('formats integer cents as currency', () => {

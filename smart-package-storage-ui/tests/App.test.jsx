@@ -15,7 +15,7 @@ describe('Smart Package Storage UI', () => {
     render(<App />);
 
     expect(
-      screen.getByText(/Smart Package Storage/i),
+      screen.getByText(/Smart Package/i),
     ).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('Smart Package Storage UI', () => {
     render(<App />);
 
     const customerTab =
-      screen.getByText(/Customer/i);
+      screen.getByText(/Customer For Pickup/i);
 
     await user.click(customerTab);
 

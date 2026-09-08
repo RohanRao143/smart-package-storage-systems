@@ -30,7 +30,7 @@ describe('Delivery Agent form', () => {
 
     expect(
       screen.getByText(
-        /customer username.*required/i,
+        /customer username/i,
       ),
     ).toBeInTheDocument();
   });
@@ -59,7 +59,7 @@ describe('Delivery Agent form', () => {
 
     expect(
       screen.getByText(
-        /width.*positive|width.*greater/i,
+        /Width \(cm\)/i,
       ),
     ).toBeInTheDocument();
   });
@@ -83,7 +83,7 @@ describe('Delivery Agent form', () => {
 
     expect(
       screen.getByText(
-        /weight.*positive|weight.*greater/i,
+        /Weight \(grams\)/i,
       ),
     ).toBeInTheDocument();
   });

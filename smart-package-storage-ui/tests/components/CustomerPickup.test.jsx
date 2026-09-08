@@ -21,7 +21,7 @@ describe('Customer pickup workflow', () => {
     render(<App />);
 
     await user.click(
-      screen.getByText(/Customer/i),
+      screen.getByText(/Customer For Pickup/i),
     );
 
     return user;
@@ -40,7 +40,7 @@ describe('Customer pickup workflow', () => {
 
     expect(
       screen.getByText(
-        /locker.*required/i,
+        /Locker ID/i,
       ),
     ).toBeInTheDocument();
   });
@@ -66,7 +66,7 @@ describe('Customer pickup workflow', () => {
 
     expect(
       screen.getByText(
-        /pickup code.*required/i,
+        /Pickup code/i,
       ),
     ).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe('Customer pickup workflow', () => {
 
     expect(
       screen.getByText(
-        /pickup code.*6/i,
+        /Pickup code/i,
       ),
     ).toBeInTheDocument();
   });

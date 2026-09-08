@@ -7,7 +7,7 @@ const emptyStore = {
 };
 const emptyRetrieve = { username: "", lockerId: "", pickupCode: "" };
 
-const money = (cents) =>
+export const money = (cents) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
     .format((Number(cents) || 0) / 100);
 
@@ -237,8 +237,8 @@ export default function App() {
     <header className="topbar">
       <div><div className="brand">SMART PACKAGE</div><div className="brand-sub">Storage & pickup</div></div>
       <nav>
-        <button className={tab === "store" ? "nav-active" : "nav-button"} onClick={() => setTab("store")}>Delivery Agent</button>
-        <button className={tab === "retrieve" ? "nav-active" : "nav-button"} onClick={() => setTab("retrieve")}>Customer</button>
+        <button className={tab === "store" ? "nav-active" : "nav-button"} onClick={() => setTab("store")}>Agent For Delivery</button>
+        <button className={tab === "retrieve" ? "nav-active" : "nav-button"} onClick={() => setTab("retrieve")}>Customer For Pickup</button>
       </nav>
     </header>
     <div className="content">{tab === "store" ? <StorePage /> : <RetrievePage />}</div>
