@@ -7,8 +7,9 @@ DB_HOST = "localhost"
 DB_PORT = "5432"
 DB_USER = "postgres"
 DB_PASSWORD = "password"
-TARGET_DB = "smart_package_storage"
-SQL_FILE_PATH = "002_dev_seed.sql"
+TARGET_DB = "smart_package_storage_test"
+# SQL_FILE_PATH = "002_dev_seed.sql"
+SQL_FILE_PATH = "001_schema.sql"
 
 
 def create_database_if_not_exists():
