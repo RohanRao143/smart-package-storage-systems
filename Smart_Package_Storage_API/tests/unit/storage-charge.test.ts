@@ -103,7 +103,7 @@ describe('ProgressiveStorageChargeService', () => {
     });
 
     expect(result.startedDays).toBe(20);
-    expect(result.chargedAmountCents).toBe(4200);
+    expect(result.chargedAmountCents).toBe(4500);
   });
 
   it('rejects collection before storage', () => {

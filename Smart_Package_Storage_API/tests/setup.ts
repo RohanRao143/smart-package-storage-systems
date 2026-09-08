@@ -1,14 +1,13 @@
-import { Client } from 'pg';
-
+import { Client, Pool } from 'pg';
 import { config as loadEnv } from 'dotenv';
 
-loadEnv()
+loadEnv();
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
-    'TEST_DATABASE_URL is required for integration/concurrency tests.',
+    'TEST_DATABASE_URL is required for PostgreSQL tests.',
   );
 }
 
@@ -22,15 +21,16 @@ export async function createTestClient(): Promise<Client> {
   return client;
 }
 
-export async function resetDatabase(client: Client): Promise<void> {
-  /*
-   * IMPORTANT:
-   *
-   * This intentionally deletes application data instead of dropping
-   * the entire schema.
-   *
-   * Keep this list synchronized with db/001_schema.sql.
-   */
+export function createTestPool(): Pool {
+  return new Pool({
+    connectionString: databaseUrl,
+    max: 20,
+  });
+}
+
+export async function resetDatabase(
+  client: Client,
+): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
       idempotency_records,
@@ -42,8 +42,4 @@ export async function resetDatabase(client: Client): Promise<void> {
       customers
     RESTART IDENTITY CASCADE
   `);
-}
-
-export async function closeClient(client: Client): Promise<void> {
-  await client.end();
 }

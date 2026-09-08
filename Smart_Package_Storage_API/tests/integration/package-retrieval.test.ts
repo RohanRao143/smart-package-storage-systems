@@ -35,12 +35,17 @@ import { SecurePickupCodeService } from '../../src/services/pickup-code-service.
 
 describe('PostgreSQL package retrieval integration', () => {
   let client: Client;
+let db: PgDatabase;
 
   beforeAll(async () => {
     client = await createTestClient();
+   db = new PgDatabase({
+    connectionString: process.env.TEST_DATABASE_URL!,
+   });
   });
 
   afterAll(async () => {
+    await client.end();
     await client.end();
   });
 

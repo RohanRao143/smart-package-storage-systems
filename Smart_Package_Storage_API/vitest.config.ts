@@ -26,5 +26,8 @@ export default defineConfig({
         'src/openapi.ts',
       ],
     },
+    fileParallelism: false,
+    maxWorkers: 1,
+    minWorkers: 1,
   },
 });

@@ -20,6 +20,7 @@ import {
 } from '../integration/test-fixtures.js';
 
 import { PgDatabase } from '../../src/db/postgres-database.js';
+
 import {
   PgCustomerRepository,
   PgIdempotencyRepository,
@@ -30,12 +31,17 @@ import { DefaultWalletService } from '../../src/services/wallet-service.js';
 
 describe('Concurrent wallet operations', () => {
   let client: Client;
+let db: PgDatabase;
 
   beforeAll(async () => {
     client = await createTestClient();
+   db = new PgDatabase({
+    connectionString: process.env.TEST_DATABASE_URL!,
+   });
   });
 
   afterAll(async () => {
+    await client.end();
     await client.end();
   });
 
@@ -44,10 +50,9 @@ describe('Concurrent wallet operations', () => {
   });
 
   it('does not lose concurrent wallet updates', async () => {
-    const customer =
-      await createCustomer(client, {
-        walletBalanceCents: 0,
-      });
+    const customer = await createCustomer(client, {
+      walletBalanceCents: 0,
+    });
 
     const db = new PgDatabase({
       connectionString: process.env.TEST_DATABASE_URL!,
@@ -62,55 +67,63 @@ describe('Concurrent wallet operations', () => {
     const idempotency =
       new PgIdempotencyRepository();
 
-    const service =
-      new DefaultWalletService(
-        db,
-        customers,
-        recharges,
-        idempotency,
-      );
+    const service = new DefaultWalletService(
+      db,
+      customers,
+      recharges,
+      idempotency,
+    );
 
     const rechargeCount = 20;
     const amount = 100;
 
-    const operations =
-      Array.from(
-        { length: rechargeCount },
-        (_, i) =>
-          service.recharge(
-            {
-              customerId: customer.id,
-              amountCents: amount,
-            } as any,
-            {
-              idempotencyKey: idempotencyKey(),
-              requestHash:
-                `wallet-${i}`,
-              requestedAt:
-                '2026-01-01T00:00:00.000Z',
-            } as any,
-          ),
-      );
+    const operations = Array.from(
+      { length: rechargeCount },
+      (_, i) =>
+        service.recharge(
+          {
+            customerId: customer.id,
+            amountCents: amount,
+          } as any,
+          {
+            idempotencyKey: idempotencyKey(),
+            requestHash: `wallet-${i}`,
+            requestedAt:
+              '2026-01-01T00:00:00.000Z',
+          } as any,
+        ),
+    );
 
     const results =
-      await Promise.all(operations);
+      await Promise.allSettled(operations);
 
-    expect(results).toHaveLength(
+    const successful = results.filter(
+      result => result.status === 'fulfilled',
+    );
+
+    const failed = results.filter(
+      result => result.status === 'rejected',
+    );
+
+    expect(successful).toHaveLength(
       rechargeCount,
     );
 
-    const result =
-      await client.query(
-        `
-          SELECT wallet_balance_cents
-          FROM customers
-          WHERE id = $1
-        `,
-        [customer.id],
-      );
+    expect(failed).toHaveLength(0);
+
+    const result = await client.query(
+      `
+        SELECT wallet_balance_cents
+        FROM customers
+        WHERE id = $1
+      `,
+      [customer.id],
+    );
 
     expect(
-      Number(result.rows[0].wallet_balance_cents),
+      Number(
+        result.rows[0].wallet_balance_cents,
+      ),
     ).toBe(
       rechargeCount * amount,
     );

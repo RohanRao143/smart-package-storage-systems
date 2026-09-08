@@ -16,6 +16,7 @@ import {
   createLocker,
   idempotencyKey,
   storeRequest,
+  TEST_DAILY_RATE_CENTS
 } from './test-fixtures.js';
 
 import { PgDatabase } from '../../src/db/postgres-database.js';
@@ -33,12 +34,17 @@ import { SecurePickupCodeService } from '../../src/services/pickup-code-service.
 
 describe('PostgreSQL package storage integration', () => {
   let client: Client;
+let db: PgDatabase;
 
   beforeAll(async () => {
     client = await createTestClient();
+    db = new PgDatabase({
+      connectionString: process.env.TEST_DATABASE_URL!,
+    });
   });
 
   afterAll(async () => {
+    await client.end();
     await client.end();
   });
 

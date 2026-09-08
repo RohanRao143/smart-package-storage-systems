@@ -22,6 +22,7 @@ import {
 } from '../integration/test-fixtures.js';
 
 import { PgDatabase } from '../../src/db/postgres-database.js';
+
 import {
   PgCustomerRepository,
   PgIdempotencyRepository,
@@ -36,12 +37,17 @@ import { SecurePickupCodeService } from '../../src/services/pickup-code-service.
 
 describe('Concurrent package storage', () => {
   let client: Client;
+let db: PgDatabase;
 
   beforeAll(async () => {
     client = await createTestClient();
+   db = new PgDatabase({
+    connectionString: process.env.TEST_DATABASE_URL!,
+   });
   });
 
   afterAll(async () => {
+    await client.end();
     await client.end();
   });
 
@@ -58,8 +64,7 @@ describe('Concurrent package storage', () => {
     const customers = new PgCustomerRepository();
     const packages = new PgPackageRepository();
     const pickupCodes = new PgPickupCodeRepository();
-    const idempotency =
-      new PgIdempotencyRepository();
+    const idempotency = new PgIdempotencyRepository();
 
     return new DefaultPackageStorageService(
       db,
@@ -84,17 +89,20 @@ describe('Concurrent package storage', () => {
       ),
     );
 
-    const storedByUsers =
-      users.slice(0, numberOfRequests);
+    const storedByUsers = users.slice(
+      0,
+      numberOfRequests,
+    );
 
-    const recipients =
-      users.slice(numberOfRequests);
+    const recipients = users.slice(
+      numberOfRequests,
+    );
 
     for (let i = 0; i < numberOfRequests; i++) {
       await createLocker(client);
     }
 
-    const servicePromises = Array.from(
+    const operations = Array.from(
       { length: numberOfRequests },
       (_, i) => {
         const service = createService();
@@ -118,14 +126,15 @@ describe('Concurrent package storage', () => {
     );
 
     const results =
-      await Promise.allSettled(servicePromises);
+      await Promise.allSettled(operations);
 
     const successful = results.filter(
       result => result.status === 'fulfilled',
     );
 
-    expect(successful.length)
-      .toBe(numberOfRequests);
+    expect(successful).toHaveLength(
+      numberOfRequests,
+    );
 
     const lockerIds = successful.map(
       result =>
@@ -133,18 +142,19 @@ describe('Concurrent package storage', () => {
           .value.lockerId,
     );
 
-    expect(new Set(lockerIds).size)
-      .toBe(numberOfRequests);
+    expect(
+      new Set(lockerIds).size,
+    ).toBe(numberOfRequests);
 
-    const occupied =
-      await client.query(`
-        SELECT COUNT(*)::int AS count
-        FROM lockers
-        WHERE is_occupied = true
-      `);
+    const occupied = await client.query(`
+      SELECT COUNT(*)::int AS count
+      FROM lockers
+      WHERE is_occupied = true
+    `);
 
-    expect(occupied.rows[0].count)
-      .toBe(numberOfRequests);
+    expect(
+      occupied.rows[0].count,
+    ).toBe(numberOfRequests);
 
     const duplicateAssignments =
       await client.query(`
@@ -155,8 +165,9 @@ describe('Concurrent package storage', () => {
         HAVING COUNT(*) > 1
       `);
 
-    expect(duplicateAssignments.rows)
-      .toHaveLength(0);
+    expect(
+      duplicateAssignments.rows,
+    ).toHaveLength(0);
   });
 
   it('handles contention when fewer lockers exist than requests', async () => {
@@ -174,14 +185,12 @@ describe('Concurrent package storage', () => {
       await createLocker(client);
     }
 
-    const services = Array.from(
+    const operations = Array.from(
       { length: requestCount },
-      () => createService(),
-    );
+      (_, i) => {
+        const service = createService();
 
-    const operations = services.map(
-      (service, i) =>
-        service.storePackage(
+        return service.storePackage(
           storeRequest(
             users[i].username,
             users[i + requestCount].username,
@@ -195,27 +204,26 @@ describe('Concurrent package storage', () => {
             requestedAt:
               '2026-01-01T00:00:00.000Z',
           } as any,
-        ),
+        );
+      },
     );
 
     const results =
       await Promise.allSettled(operations);
 
-    const successful =
-      results.filter(
-        result => result.status === 'fulfilled',
-      );
+    const successful = results.filter(
+      result => result.status === 'fulfilled',
+    );
 
-    const rejected =
-      results.filter(
-        result => result.status === 'rejected',
-      );
+    const rejected = results.filter(
+      result => result.status === 'rejected',
+    );
 
-    expect(successful.length)
-      .toBe(lockerCount);
+    expect(successful).toHaveLength(lockerCount);
 
-    expect(rejected.length)
-      .toBe(requestCount - lockerCount);
+    expect(rejected).toHaveLength(
+      requestCount - lockerCount,
+    );
 
     const lockerIds = successful.map(
       result =>
@@ -223,7 +231,8 @@ describe('Concurrent package storage', () => {
           .value.lockerId,
     );
 
-    expect(new Set(lockerIds).size)
-      .toBe(lockerCount);
+    expect(
+      new Set(lockerIds).size,
+    ).toBe(lockerCount);
   });
 });

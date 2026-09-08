@@ -44,14 +44,15 @@ import { DefaultWalletService } from '../../src/services/wallet-service.js';
 
 describe('HTTP API integration', () => {
   let client: Client;
+let db: PgDatabase;
   let app: any;
 
   beforeAll(async () => {
     client = await createTestClient();
-
-    const db = new PgDatabase({
+    db = new PgDatabase({
       connectionString: process.env.TEST_DATABASE_URL!,
     });
+
 
     const lockers =
       new PgLockerRepository();
@@ -127,6 +128,7 @@ describe('HTTP API integration', () => {
 
   afterAll(async () => {
     await client.end();
+    await client.end();
   });
 
   beforeEach(async () => {
@@ -165,7 +167,7 @@ describe('HTTP API integration', () => {
     const response =
       await request(app)
         .get('/api/v1/lockers')
-        .query({ available: 'true' });
+        .query({ available: true });
 
     expect(response.status)
       .toBe(200);
